@@ -332,6 +332,8 @@ async function changeClimateDataSource() {
   const select = $('climateProduct');
   select.replaceChildren();
   if ($('climateDataSource').value === 'global') {
+    $('climateMapMonthControl').hidden = false;
+    $('climateAdd').textContent = 'Diagramm und Farbfläche laden';
     $('climateProductLabel').textContent = 'Globalen Parameter laden';
     GLOBAL_CLIMATE_PRODUCTS.forEach(([value, label]) => climateOption(select, value, label));
     select.disabled = false;
@@ -340,12 +342,43 @@ async function changeClimateDataSource() {
       ? 'Wähle Parameter und Jahr für den markierten Ort.'
       : 'Wähle weltweit einen Ort auf der Karte oder über die Ortssuche.');
   } else {
+    $('climateMapMonthControl').hidden = true;
+    $('climateAdd').textContent = 'Monatsdaten laden';
     $('climateProductLabel').textContent = 'DWD-Parameter laden';
     if (!dwdProductsLoaded) {
       await initClimateProducts();
       dwdProductsLoaded = true;
     } else await initClimateProducts();
   }
+}
+
+function visibleGlobalBounds() {
+  const bounds = map.getBounds(), center = state.selectedPoint.lng;
+  const span = Math.min(120, Math.max(0.5, bounds.getEast() - bounds.getWest()));
+  let west = Math.max(-180, center - span / 2), east = Math.min(180, center + span / 2);
+  if (east - west < span) {
+    if (west === -180) east = Math.min(180, west + span);
+    else west = Math.max(-180, east - span);
+  }
+  return {
+    west, east,
+    south: Math.max(-85, bounds.getSouth()),
+    north: Math.min(85, bounds.getNorth())
+  };
+}
+
+async function addGlobalColourLayer(year, parameter) {
+  climateStatus('ERA5-Farbfläche für den sichtbaren Kartenausschnitt wird berechnet …');
+  const data = await api('/api/global-grid', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      ...visibleGlobalBounds(), year, parameter, month: Number($('climateMapMonth').value)
+    })
+  });
+  if (data.raster.palette) $('palette').value = data.raster.palette;
+  addRaster(data.raster, true, true);
+  updateLegend();
+  return data.raster;
 }
 
 async function addGlobalClimateProduct(year) {
@@ -362,7 +395,8 @@ async function addGlobalClimateProduct(year) {
   climateSelectedParameters.add(`${data.values[0].productKey}::${data.values[0].unit}`);
   climateRequestedYear = year;
   renderClimatePanel();
-  climateStatus(`${data.values[0].title} für ${year} geladen · ${data.source} · etwa 25 km Auflösung.`);
+  const raster = await addGlobalColourLayer(year, parameter);
+  climateStatus(`${data.values[0].title} für ${year} geladen · Farbfläche: ${raster.periodLabel} im sichtbaren Kartenausschnitt.`);
 }
 
 async function addClimateProduct() {

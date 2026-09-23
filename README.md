@@ -60,6 +60,10 @@ wählen. Danach lassen sich mittlere, höchste und tiefste Temperatur, Niedersch
 Sonnenscheindauer, Globalstrahlung, Referenzverdunstung und Wind für vollständige
 Jahre ab 1950 laden. Die Werte sind modellgestützte Reanalysedaten für eine
 Rasterzelle von ungefähr 25 km und keine Messung direkt am angeklickten Punkt.
+Zusätzlich erzeugt das Tool für den gewählten Kartenmonat eine farbige ERA5-Ebene
+über dem aktuell sichtbaren Kartenausschnitt. Nach dem Wechsel in eine andere
+Weltregion die Daten erneut laden, damit die Farbfläche für diesen Ausschnitt
+berechnet wird.
 
 ## Installation in Visual Studio Code
 

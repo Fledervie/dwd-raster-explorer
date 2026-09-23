@@ -4,16 +4,19 @@ import os
 import re
 import secrets
 import math
+import calendar
 from datetime import date
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
+import numpy as np
 from flask import Flask, jsonify, render_template, request, send_file
+from pyproj import CRS
 
 from dwd_descriptions import fetch_description
 from dwd_metadata import describe_dwd_grid
-from raster_grid import parse_ascii_grid
+from raster_grid import RasterGrid, parse_ascii_grid
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
@@ -59,6 +62,13 @@ def aggregate_months(times, values, operation, factor=1):
     return [None if not items else round(
         sum(items) if operation == "sum" else sum(items) / len(items), 3
     ) for items in months]
+
+
+def aggregate_values(values, operation, factor=1):
+    items = [float(value) * factor for value in values if value is not None]
+    if not items:
+        return math.nan
+    return sum(items) if operation == "sum" else sum(items) / len(items)
 
 
 def store(raw, name, epsg=None, unit="", source_url="", read_description=False):
@@ -237,6 +247,63 @@ def global_climate():
         })
     except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
         return error(f"Globale Klimadaten sind derzeit nicht verfügbar: {exc}", 502)
+
+
+@app.post("/api/global-grid")
+def global_grid():
+    try:
+        data = request.get_json(force=True)
+        west, south, east, north = (float(data[key]) for key in ("west", "south", "east", "north"))
+        year, month, key = int(data["year"]), int(data["month"]), data["parameter"]
+        if not (-180 <= west < east <= 180 and -85 <= south < north <= 85):
+            raise ValueError("Der sichtbare Kartenausschnitt ist ungültig.")
+        if not 1950 <= year < date.today().year or not 1 <= month <= 12:
+            raise ValueError("Jahr oder Monat liegt außerhalb des verfügbaren Zeitraums.")
+        variable, title, unit, operation, factor = GLOBAL_CLIMATE_PARAMETERS[key]
+    except (KeyError, TypeError, ValueError) as exc:
+        return error(exc if str(exc) else "Ungültige Angaben für die globale Farbfläche.")
+
+    ncols, nrows = 6, 5
+    dx, dy = (east - west) / ncols, (north - south) / nrows
+    lons = [west + (column + 0.5) * dx for row in range(nrows) for column in range(ncols)]
+    lats = [north - (row + 0.5) * dy for row in range(nrows) for column in range(ncols)]
+    last_day = calendar.monthrange(year, month)[1]
+    try:
+        response = requests.get(GLOBAL_CLIMATE_URL, params={
+            "latitude": ",".join(f"{value:.5f}" for value in lats),
+            "longitude": ",".join(f"{value:.5f}" for value in lons),
+            "start_date": f"{year}-{month:02d}-01",
+            "end_date": f"{year}-{month:02d}-{last_day:02d}",
+            "daily": variable, "timezone": "GMT", "models": "era5",
+            "cell_selection": "nearest",
+            "elevation": ",".join("nan" for _ in lats),
+        }, timeout=60, headers={"User-Agent": "DWD-Raster-Explorer/1.0"})
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list) or len(payload) != ncols * nrows:
+            raise ValueError("Die globale Rasterantwort ist unvollständig.")
+        values = np.asarray([
+            aggregate_values(location["daily"][variable], operation, factor)
+            for location in payload
+        ], dtype=np.float32).reshape((nrows, ncols))
+        month_name = ("Januar", "Februar", "März", "April", "Mai", "Juni",
+                      "Juli", "August", "September", "Oktober", "November", "Dezember")[month - 1]
+        palette = "precip" if key == "precipitation" else "terrain" if key == "sunshine" else "climate"
+        grid = RasterGrid(
+            name=f"ERA5_{key}_{year}{month:02d}", values=values,
+            ncols=ncols, nrows=nrows, xll=west, yll=south, dx=dx, dy=dy,
+            nodata=math.nan, crs=CRS.from_epsg(4326), crs_source="ERA5 / WGS84",
+            timestamp=f"{year}-{month:02d}", unit=unit, title=title,
+            period_label=f"{month_name} {year}",
+            description="ERA5-Monatswert im beim Laden sichtbaren Kartenausschnitt · etwa 25 km Quelldaten",
+            description_url="https://open-meteo.com/en/docs/historical-weather-api",
+            source_url="", product_key=f"global:{key}", palette=palette, verified_unit=True,
+        )
+        raster_id = secrets.token_urlsafe(10)
+        RASTERS[raster_id] = grid
+        return jsonify({"raster": grid.metadata(raster_id), "samples": ncols * nrows})
+    except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+        return error(f"Globale Farbfläche konnte nicht erzeugt werden: {exc}", 502)
 
 
 @app.get("/api/raster/<raster_id>/image.png")

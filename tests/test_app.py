@@ -85,6 +85,21 @@ class SampleRasterTest(unittest.TestCase):
         self.assertIsNone(data["values"][2]["value"])
         self.assertEqual(get.call_args.kwargs["params"]["models"], "era5")
 
+    def test_global_grid_creates_a_coloured_map_raster_for_visible_bounds(self):
+        locations = [{"daily": {"precipitation_sum": [1, 2, None]}} for _ in range(30)]
+        with patch("app.requests.get") as get, app.test_client() as client:
+            get.return_value.json.return_value = locations
+            response = client.post("/api/global-grid", json={
+                "west": 150, "south": -35, "east": 152, "north": -33,
+                "year": 2020, "month": 1, "parameter": "precipitation",
+            })
+        self.assertEqual(response.status_code, 200)
+        raster = response.get_json()["raster"]
+        self.assertEqual((raster["ncols"], raster["nrows"], raster["unit"]), (6, 5, "mm"))
+        self.assertEqual(raster["periodLabel"], "Januar 2020")
+        self.assertEqual(raster["palette"], "precip")
+        self.assertEqual(get.call_args.kwargs["params"]["cell_selection"], "nearest")
+
 
 if __name__ == "__main__":
     unittest.main()
