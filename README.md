@@ -20,7 +20,10 @@ bei Render ein und verbindet ihn mit dem GitHub-Repository.
 4. Nach dem ersten Build die angezeigte Adresse
    `https://dwd-raster-explorer-….onrender.com` öffnen und als Lesezeichen speichern.
 
-Weitere Änderungen am verbundenen GitHub-Zweig werden automatisch veröffentlicht.
+Bei einer Verbindung über die Render-GitHub-App werden weitere Änderungen am
+GitHub-Zweig automatisch veröffentlicht. Wird das öffentliche Repository nur
+über seine URL eingebunden, muss anschließend in Render ein neues Deployment
+gestartet werden.
 Beim kostenlosen Render-Tarif schläft der Server nach längerer Inaktivität ein;
 der erste Aufruf kann deshalb ungefähr eine Minute benötigen. Geladene Raster
 liegen nur im Arbeitsspeicher und müssen nach einem Neustart erneut geladen werden.
