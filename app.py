@@ -217,7 +217,7 @@ def global_climate():
         response = requests.get(GLOBAL_CLIMATE_URL, params={
             "latitude": lat, "longitude": lon,
             "start_date": f"{year}-01-01", "end_date": f"{year}-12-31",
-            "daily": variable, "timezone": "auto", "models": "era5_land",
+            "daily": variable, "timezone": "auto", "models": "era5",
         }, timeout=30, headers={"User-Agent": "DWD-Raster-Explorer/1.0"})
         response.raise_for_status()
         payload = response.json()
@@ -228,12 +228,12 @@ def global_climate():
             "name": title, "title": title, "unit": unit,
             "productKey": f"global:{key}", "timestamp": f"{year}-{month:02d}",
             "periodLabel": f"{month:02d}/{year}", "value": value,
-            "source": "Open-Meteo / ERA5-Land",
+            "source": "Open-Meteo / ERA5",
         } for month, value in enumerate(monthly, 1)]
         return jsonify({
             "values": values, "latitude": payload.get("latitude", lat),
             "longitude": payload.get("longitude", lon),
-            "elevation": payload.get("elevation"), "source": "Open-Meteo / ERA5-Land",
+            "elevation": payload.get("elevation"), "source": "Open-Meteo / ERA5",
         })
     except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
         return error(f"Globale Klimadaten sind derzeit nicht verfügbar: {exc}", 502)

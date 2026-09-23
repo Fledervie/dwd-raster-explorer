@@ -354,7 +354,7 @@ async function addGlobalClimateProduct(year) {
   const query = new URLSearchParams({
     lat: state.selectedPoint.lat, lon: state.selectedPoint.lng, year, parameter
   });
-  climateStatus('Weltweite ERA5-Land-Daten werden geladen …');
+  climateStatus('Weltweite ERA5-Daten werden geladen …');
   const data = await api(`/api/global-climate?${query}`);
   globalClimateValues = globalClimateValues.filter(value =>
     !(value.productKey === `global:${parameter}` && value.timestamp.startsWith(`${year}-`)));
@@ -362,7 +362,7 @@ async function addGlobalClimateProduct(year) {
   climateSelectedParameters.add(`${data.values[0].productKey}::${data.values[0].unit}`);
   climateRequestedYear = year;
   renderClimatePanel();
-  climateStatus(`${data.values[0].title} für ${year} geladen · ${data.source} · etwa 11 km Auflösung.`);
+  climateStatus(`${data.values[0].title} für ${year} geladen · ${data.source} · etwa 25 km Auflösung.`);
 }
 
 async function addClimateProduct() {

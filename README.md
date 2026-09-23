@@ -39,7 +39,7 @@ liegen nur im Arbeitsspeicher und müssen nach einem Neustart erneut geladen wer
 - Monatsverlauf per Jahr laden: alle verfügbaren Monate eines DWD-Parameters werden gemeinsam importiert und im Diagramm dargestellt
 - Diagrammparameter unabhängig von der sichtbaren Kartenebene auswählen
 - Klimadiagramm unter der Punktabfrage mit frei wählbaren Parametern und Monaten; Temperatur als Linie und Niederschlag als Balken mit getrennten Achsen
-- weltweite Klimadiagramme ab 1950 für jeden gewählten Ort mit ERA5-Land-Daten von Open-Meteo (etwa 11 km Auflösung)
+- weltweite Klimadiagramme ab 1950 für jeden gewählten Ort mit ERA5-Daten von Open-Meteo (etwa 25 km Auflösung)
 - Reprojektion projizierter Raster in die Web-Mercator-Kartenprojektion
 - geführter DWD-Katalog: Zeitauflösung, Parameter, gegebenenfalls Monat und Jahr wählen; die Verzeichnisse werden live abgefragt
 - DWD-Verzeichnisse bei Bedarf auch manuell durchsuchen und ausgewählte Dateien laden
@@ -55,11 +55,11 @@ Für einen Temperaturverlauf **Monat** und beispielsweise **Durchschnittliche Ta
 
 Unter der Punktabfrage findest du das **Klimadiagramm**. Dort kannst du weitere DWD-Monatsparameter und ein Jahr direkt laden. Die Tabelle zeigt für jeden geladenen Parameter die Werte von Januar bis Dezember am gewählten Ort. Im Bereich **Parameter im Klimadiagramm** kannst du mehrere Parameter gleichzeitig anhaken; **Alle auswählen** aktiviert sämtliche geladenen Reihen. Die Häkchen links in der Tabelle sind mit dieser Auswahl verbunden. Über die Häkchen in den Monatsköpfen wählst du einzelne Monate; **Alle Monate anzeigen** im Tabellenkopf schaltet das ganze Jahr ein oder aus. Eine zusätzliche Jahresauswahl erscheint nur, wenn Monatsdaten aus mehreren Jahren geladen sind. In der Spalte **Darstellung** entscheidest du zwischen Linie und Balken. Temperatur (°C) und Niederschlag (mm) erhalten getrennte Achsen. Nicht geladene Monate bleiben als Lücke sichtbar.
 
-Für Orte außerhalb Deutschlands im Klimadiagramm die Datenquelle **Weltweit · ERA5-Land**
+Für Orte außerhalb Deutschlands im Klimadiagramm die Datenquelle **Weltweit · ERA5**
 wählen. Danach lassen sich mittlere, höchste und tiefste Temperatur, Niederschlag,
 Sonnenscheindauer, Globalstrahlung, Referenzverdunstung und Wind für vollständige
 Jahre ab 1950 laden. Die Werte sind modellgestützte Reanalysedaten für eine
-Rasterzelle von ungefähr 11 km und keine Messung direkt am angeklickten Punkt.
+Rasterzelle von ungefähr 25 km und keine Messung direkt am angeklickten Punkt.
 
 ## Installation in Visual Studio Code
 
@@ -101,7 +101,7 @@ Ist die automatische Erkennung nicht eindeutig, wird die Datei nicht auf Verdach
 ## Hinweise
 
 - Die Hintergrundkarte benötigt eine Internetverbindung. Raster, Kartensteuerung und Diagramm funktionieren mit den lokal mitgelieferten Bibliotheken auch ohne erreichbares CDN.
-- Die Ortssuche verwendet weltweit die Geocoding-API von Open-Meteo mit Ortsdaten von GeoNames und benötigt eine Internetverbindung. Globale historische Klimadaten stammen aus Open-Meteo/ERA5-Land und stehen in der kostenlosen API nur für nicht kommerzielle Nutzung unter CC BY 4.0 bereit.
+- Die Ortssuche verwendet weltweit die Geocoding-API von Open-Meteo mit Ortsdaten von GeoNames und benötigt eine Internetverbindung. Globale historische Klimadaten stammen aus Open-Meteo/ERA5 und stehen in der kostenlosen API nur für nicht kommerzielle Nutzung unter CC BY 4.0 bereit.
 - Die Raster bleiben nur während der laufenden Programmsitzung im Arbeitsspeicher.
 - Der Direktimport akzeptiert aus Sicherheitsgründen ausschließlich Dateien unter `https://opendata.dwd.de/climate_environment/`.
 - Bei vielen großen Rastern steigt der Arbeitsspeicherbedarf entsprechend an.

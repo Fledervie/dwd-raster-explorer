@@ -79,11 +79,11 @@ class SampleRasterTest(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(data["source"], "Open-Meteo / ERA5-Land")
+        self.assertEqual(data["source"], "Open-Meteo / ERA5")
         self.assertEqual(data["values"][0]["value"], 29)
         self.assertEqual(data["values"][1]["value"], 26)
         self.assertIsNone(data["values"][2]["value"])
-        self.assertEqual(get.call_args.kwargs["params"]["models"], "era5_land")
+        self.assertEqual(get.call_args.kwargs["params"]["models"], "era5")
 
 
 if __name__ == "__main__":
