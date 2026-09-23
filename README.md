@@ -1,5 +1,7 @@
 # DWD Raster Explorer
 
+**Webanwendung:** <https://dwd-raster-explorer.onrender.com>
+
 Lokales Kartenwerkzeug zum Öffnen, Vergleichen und punktweisen Auslesen von ESRI-ASCII-Rastern (`.asc` und `.asc.gz`). Es kann lokale Dateien per Drag-and-drop laden und Raster direkt aus dem DWD-Open-Data-Verzeichnis importieren.
 
 Beim Öffnen lädt die Anwendung automatisch das DWD-Raster der durchschnittlichen Tageshöchsttemperatur für Januar 1901 sowie das Jahresraster 1901. Das Januar-Raster ist auf der Karte sichtbar. So sind Karte, Legende und Punktabfrage sofort nutzbar.
