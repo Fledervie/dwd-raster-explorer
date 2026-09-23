@@ -7,6 +7,20 @@ let climateSelectionChanged = false;
 let climateYearChanged = false;
 let climateRowsVisible = [];
 let climateSourceRequest = 0;
+let globalClimateValues = [];
+let globalClimatePoint = '';
+let dwdProductsLoaded = false;
+let climateRequestedYear = '';
+const GLOBAL_CLIMATE_PRODUCTS = [
+  ['temperature_mean', 'Mittlere Lufttemperatur'],
+  ['temperature_max', 'Durchschnittliche Tageshöchsttemperatur'],
+  ['temperature_min', 'Durchschnittliche Tagestiefsttemperatur'],
+  ['precipitation', 'Niederschlagssumme'],
+  ['sunshine', 'Sonnenscheindauer'],
+  ['radiation', 'Globalstrahlung'],
+  ['evapotranspiration', 'Referenzverdunstung ET₀'],
+  ['wind', 'Durchschnittliches tägliches Windmaximum']
+];
 
 const climateChart = new Chart($('climateChart'), {
   type: 'line',
@@ -38,8 +52,15 @@ function climateOption(select, value, label) {
 }
 
 function renderClimatePanel() {
+  const pointKey = state.selectedPoint
+    ? `${state.selectedPoint.lat.toFixed(5)},${state.selectedPoint.lng.toFixed(5)}` : '';
+  if (pointKey !== globalClimatePoint) {
+    globalClimateValues = [];
+    globalClimatePoint = pointKey;
+  }
   $('climatePoint').textContent = $('pointLabel').textContent;
-  const years = climateYears(state.pointValues);
+  const climateValues = [...state.pointValues, ...globalClimateValues];
+  const years = climateYears(climateValues);
   const yearSelect = $('climateYear');
   const previous = yearSelect.value;
   const active = state.rasters.get(state.activeId);
@@ -48,11 +69,14 @@ function renderClimatePanel() {
   years.forEach(year => climateOption(yearSelect, year, year));
   yearSelect.disabled = !years.length;
   $('climateYearControl').hidden = years.length <= 1;
-  if (years.length) yearSelect.value = climateYearChanged && years.includes(previous)
-    ? previous : (years.includes(activeYear) ? activeYear : years[0]);
-  else climateOption(yearSelect, '', 'Monatsdaten laden');
+  if (years.length) {
+    yearSelect.value = years.includes(climateRequestedYear)
+      ? climateRequestedYear : (climateYearChanged && years.includes(previous)
+        ? previous : (years.includes(activeYear) ? activeYear : years[0]));
+  } else climateOption(yearSelect, '', 'Monatsdaten laden');
+  climateRequestedYear = '';
 
-  climateRowsVisible = years.length ? climateRows(state.pointValues, yearSelect.value) : [];
+  climateRowsVisible = years.length ? climateRows(climateValues, yearSelect.value) : [];
   const availableKeys = new Set(climateRowsVisible.map(row => row.key));
   for (const key of [...climateSelectedParameters]) {
     if (!availableKeys.has(key)) climateSelectedParameters.delete(key);
@@ -255,10 +279,16 @@ async function loadClimateProductYears() {
   select.disabled = true;
   $('climateAdd').disabled = true;
   try {
-    const {files} = await monthlyProductFiles($('climateProduct').value, catalogList);
+    let years;
+    if ($('climateDataSource').value === 'global') {
+      const lastYear = new Date().getFullYear() - 1;
+      years = Array.from({length: lastYear - 1949}, (_, index) => String(lastYear - index));
+    } else {
+      const {files} = await monthlyProductFiles($('climateProduct').value, catalogList);
+      years = [...new Set(files.map(entry => monthlyFileParts(entry.name)?.year).filter(Boolean))]
+        .sort().reverse();
+    }
     if (requestId !== climateSourceRequest) return;
-    const years = [...new Set(files.map(entry => monthlyFileParts(entry.name)?.year).filter(Boolean))]
-      .sort().reverse();
     select.replaceChildren();
     years.forEach(year => climateOption(select, year, year));
     select.disabled = !years.length;
@@ -298,11 +328,52 @@ async function initClimateProducts() {
   } catch (error) {climateStatus(`DWD-Katalog nicht erreichbar: ${error.message}`, true)}
 }
 
+async function changeClimateDataSource() {
+  const select = $('climateProduct');
+  select.replaceChildren();
+  if ($('climateDataSource').value === 'global') {
+    $('climateProductLabel').textContent = 'Globalen Parameter laden';
+    GLOBAL_CLIMATE_PRODUCTS.forEach(([value, label]) => climateOption(select, value, label));
+    select.disabled = false;
+    await loadClimateProductYears();
+    climateStatus(state.selectedPoint
+      ? 'Wähle Parameter und Jahr für den markierten Ort.'
+      : 'Wähle weltweit einen Ort auf der Karte oder über die Ortssuche.');
+  } else {
+    $('climateProductLabel').textContent = 'DWD-Parameter laden';
+    if (!dwdProductsLoaded) {
+      await initClimateProducts();
+      dwdProductsLoaded = true;
+    } else await initClimateProducts();
+  }
+}
+
+async function addGlobalClimateProduct(year) {
+  if (!state.selectedPoint) throw new Error('Wähle zuerst einen Ort auf der Karte.');
+  const parameter = $('climateProduct').value;
+  const query = new URLSearchParams({
+    lat: state.selectedPoint.lat, lon: state.selectedPoint.lng, year, parameter
+  });
+  climateStatus('Weltweite ERA5-Land-Daten werden geladen …');
+  const data = await api(`/api/global-climate?${query}`);
+  globalClimateValues = globalClimateValues.filter(value =>
+    !(value.productKey === `global:${parameter}` && value.timestamp.startsWith(`${year}-`)));
+  globalClimateValues.push(...data.values);
+  climateSelectedParameters.add(`${data.values[0].productKey}::${data.values[0].unit}`);
+  climateRequestedYear = year;
+  renderClimatePanel();
+  climateStatus(`${data.values[0].title} für ${year} geladen · ${data.source} · etwa 11 km Auflösung.`);
+}
+
 async function addClimateProduct() {
   const button = $('climateAdd'), year = $('climateSourceYear').value;
   if (!year) return;
   button.disabled = true;
   try {
+    if ($('climateDataSource').value === 'global') {
+      await addGlobalClimateProduct(year);
+      return;
+    }
     const urls = await monthlySeriesUrls($('climateProduct').value, year,
       (done, total) => climateStatus(`Monatsraster werden gesucht … ${done}/${total}`));
     if (!urls.length) throw new Error(`Für ${year} wurden keine Monatsraster gefunden.`);
@@ -328,6 +399,7 @@ $('climateYear').onchange = () => {
   renderClimatePanel();
 };
 $('climateProduct').onchange = loadClimateProductYears;
+$('climateDataSource').onchange = changeClimateDataSource;
 $('climateAdd').onclick = addClimateProduct;
 $('climateAllMonths').onchange = event => {
   climateMonthsSelected.clear();
@@ -350,4 +422,4 @@ document.addEventListener('app-theme-change', () => {
   syncClimateParameterSelection();
 });
 renderClimatePanel();
-initClimateProducts();
+changeClimateDataSource();

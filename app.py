@@ -4,6 +4,7 @@ import os
 import re
 import secrets
 import math
+from datetime import date
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -24,6 +25,17 @@ JANUARY_ID = None
 DWD_HOST = "opendata.dwd.de"
 DWD_ROOT = "/climate_environment/"
 DWD_GRID_ROOT = "https://opendata.dwd.de/climate_environment/CDC/grids_germany/"
+GLOBAL_CLIMATE_URL = "https://archive-api.open-meteo.com/v1/archive"
+GLOBAL_CLIMATE_PARAMETERS = {
+    "temperature_mean": ("temperature_2m_mean", "Mittlere Lufttemperatur", "°C", "mean", 1),
+    "temperature_max": ("temperature_2m_max", "Durchschnittliche Tageshöchsttemperatur", "°C", "mean", 1),
+    "temperature_min": ("temperature_2m_min", "Durchschnittliche Tagestiefsttemperatur", "°C", "mean", 1),
+    "precipitation": ("precipitation_sum", "Niederschlagssumme", "mm", "sum", 1),
+    "sunshine": ("sunshine_duration", "Sonnenscheindauer", "h", "sum", 1 / 3600),
+    "radiation": ("shortwave_radiation_sum", "Globalstrahlung", "MJ/m²", "sum", 1),
+    "evapotranspiration": ("et0_fao_evapotranspiration", "Referenzverdunstung ET₀", "mm", "sum", 1),
+    "wind": ("wind_speed_10m_max", "Durchschnittliches tägliches Windmaximum", "km/h", "mean", 1),
+}
 
 
 def error(message, status=400):
@@ -37,6 +49,16 @@ def valid_dwd_url(url: str, file_required=False):
         valid = valid and parsed.path.lower().endswith((".asc.gz", ".asc"))
     if not valid:
         raise ValueError("Erlaubt sind ausschließlich HTTPS-Adressen unter opendata.dwd.de/climate_environment/.")
+
+
+def aggregate_months(times, values, operation, factor=1):
+    months = [[] for _ in range(12)]
+    for timestamp, value in zip(times, values):
+        if value is not None:
+            months[int(timestamp[5:7]) - 1].append(float(value) * factor)
+    return [None if not items else round(
+        sum(items) if operation == "sum" else sum(items) / len(items), 3
+    ) for items in months]
 
 
 def store(raw, name, epsg=None, unit="", source_url="", read_description=False):
@@ -160,7 +182,7 @@ def search_places():
     try:
         response = requests.get(
             "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": query, "count": 8, "language": "de", "countryCode": "DE"},
+            params={"name": query, "count": 8, "language": "de"},
             timeout=12, headers={"User-Agent": "DWD-Raster-Explorer/1.0"},
         )
         response.raise_for_status()
@@ -169,11 +191,52 @@ def search_places():
             lat, lon = float(item["latitude"]), float(item["longitude"])
             if not (math.isfinite(lat) and math.isfinite(lon)):
                 continue
-            label = ", ".join(part for part in (item.get("name"), item.get("admin1")) if part)
+            label = ", ".join(dict.fromkeys(part for part in (
+                item.get("name"), item.get("admin1"), item.get("country")
+            ) if part))
             places.append({"name": label, "lat": lat, "lon": lon})
         return jsonify({"places": places})
     except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
         return error(f"Ortssuche derzeit nicht verfügbar: {exc}", 502)
+
+
+@app.get("/api/global-climate")
+def global_climate():
+    try:
+        lat, lon = float(request.args["lat"]), float(request.args["lon"])
+        year = int(request.args["year"])
+        key = request.args["parameter"]
+        if not (math.isfinite(lat) and -90 <= lat <= 90 and math.isfinite(lon) and -180 <= lon <= 180):
+            raise ValueError("Ungültige Koordinaten.")
+        if not 1950 <= year < date.today().year:
+            raise ValueError("Verfügbar sind vollständige Jahre ab 1950 bis zum Vorjahr.")
+        variable, title, unit, operation, factor = GLOBAL_CLIMATE_PARAMETERS[key]
+    except (KeyError, TypeError, ValueError) as exc:
+        return error(exc if str(exc) else "Unbekannter globaler Klimaparameter.")
+    try:
+        response = requests.get(GLOBAL_CLIMATE_URL, params={
+            "latitude": lat, "longitude": lon,
+            "start_date": f"{year}-01-01", "end_date": f"{year}-12-31",
+            "daily": variable, "timezone": "auto", "models": "era5_land",
+        }, timeout=30, headers={"User-Agent": "DWD-Raster-Explorer/1.0"})
+        response.raise_for_status()
+        payload = response.json()
+        daily = payload["daily"]
+        monthly = aggregate_months(daily["time"], daily[variable], operation, factor)
+        values = [{
+            "id": f"global:{key}:{year}:{month:02d}",
+            "name": title, "title": title, "unit": unit,
+            "productKey": f"global:{key}", "timestamp": f"{year}-{month:02d}",
+            "periodLabel": f"{month:02d}/{year}", "value": value,
+            "source": "Open-Meteo / ERA5-Land",
+        } for month, value in enumerate(monthly, 1)]
+        return jsonify({
+            "values": values, "latitude": payload.get("latitude", lat),
+            "longitude": payload.get("longitude", lon),
+            "elevation": payload.get("elevation"), "source": "Open-Meteo / ERA5-Land",
+        })
+    except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+        return error(f"Globale Klimadaten sind derzeit nicht verfügbar: {exc}", 502)
 
 
 @app.get("/api/raster/<raster_id>/image.png")

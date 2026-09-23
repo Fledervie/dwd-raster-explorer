@@ -50,19 +50,40 @@ class SampleRasterTest(unittest.TestCase):
         with patch("app.requests.get") as get, app.test_client() as client:
             get.return_value.json.return_value = {"results": [
                 {"name": "Berlin", "admin1": "Berlin", "latitude": 52.52437,
-                 "longitude": 13.41053},
+                 "longitude": 13.41053, "country": "Deutschland"},
             ]}
             response = client.get("/api/places?q=Berlin")
-            self.assertEqual(get.call_args.kwargs["params"]["countryCode"], "DE")
+            self.assertNotIn("countryCode", get.call_args.kwargs["params"])
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["places"], [
-            {"name": "Berlin, Berlin", "lat": 52.52437, "lon": 13.41053},
+            {"name": "Berlin, Deutschland", "lat": 52.52437, "lon": 13.41053},
         ])
 
     def test_place_search_requires_query(self):
         with app.test_client() as client:
             response = client.get("/api/places?q=A")
         self.assertEqual(response.status_code, 400)
+
+    def test_global_climate_aggregates_daily_values_into_months(self):
+        payload = {
+            "latitude": -33.9, "longitude": 151.2, "elevation": 42,
+            "daily": {
+                "time": ["2020-01-01", "2020-01-02", "2020-02-01"],
+                "temperature_2m_max": [28, 30, 26],
+            },
+        }
+        with patch("app.requests.get") as get, app.test_client() as client:
+            get.return_value.json.return_value = payload
+            response = client.get(
+                "/api/global-climate?lat=-33.9&lon=151.2&year=2020&parameter=temperature_max"
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["source"], "Open-Meteo / ERA5-Land")
+        self.assertEqual(data["values"][0]["value"], 29)
+        self.assertEqual(data["values"][1]["value"], 26)
+        self.assertIsNone(data["values"][2]["value"])
+        self.assertEqual(get.call_args.kwargs["params"]["models"], "era5_land")
 
 
 if __name__ == "__main__":

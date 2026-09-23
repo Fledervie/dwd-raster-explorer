@@ -145,7 +145,7 @@
           <div id="map" aria-label="Interaktive Karte mit DWD-Rastern"></div>
           <form id="placeSearch" class="place-search" role="search">
             <label class="visually-hidden" for="placeQuery">Ort suchen</label>
-            <div class="place-search-row"><input id="placeQuery" type="search" placeholder="Ort oder PLZ suchen" autocomplete="off"><button class="button primary search-submit" type="submit" aria-label="Ort suchen" title="Ort suchen"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg></button></div>
+            <div class="place-search-row"><input id="placeQuery" type="search" placeholder="Ort weltweit suchen" autocomplete="off"><button class="button primary search-submit" type="submit" aria-label="Ort suchen" title="Ort suchen"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg></button></div>
             <div id="placeResults" class="place-results" hidden></div>
           </form>
           <div id="mapEmpty" class="map-empty"><span class="map-empty-icon" aria-hidden="true">▧</span><strong>Die Karte wartet auf Daten</strong><span>Lade links ein Raster, um es anzuzeigen.</span></div>
@@ -164,7 +164,8 @@
       <section class="climate-panel" aria-labelledby="climateTitle">
         <div class="climate-heading"><div><span class="eyebrow">KLIMADIAGRAMM</span><h2 id="climateTitle">Monatswerte vergleichen</h2><p>Wähle Parameter und Monate für den markierten Ort.</p></div><div class="climate-heading-side"><label id="climateYearControl" hidden>Jahr<select id="climateYear" disabled><option>Monatsdaten laden</option></select></label><span id="climatePoint" class="point-label">Noch kein Ort gewählt</span></div></div>
         <div class="climate-add">
-          <label>Weiteren DWD-Parameter laden<select id="climateProduct" disabled><option>Parameter werden geladen …</option></select></label>
+          <label class="climate-source-field">Datenquelle<select id="climateDataSource"><option value="global" selected>Weltweit · ERA5-Land</option><option value="dwd">Deutschland · DWD-Raster</option></select></label>
+          <label class="climate-product-field"><span id="climateProductLabel">Parameter laden</span><select id="climateProduct" disabled><option>Parameter werden geladen …</option></select></label>
           <label>Jahr zum Laden<select id="climateSourceYear" disabled><option>Jahr wählen</option></select></label>
           <button id="climateAdd" class="button primary" type="button" disabled>Monatsdaten laden</button>
         </div>
