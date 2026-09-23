@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="de" data-theme="lilli-dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DWD-Raster auf einer Karte anzeigen und Werte an jedem Ort auslesen.">
+  <title>DWD Raster Explorer</title>
+  <script>
+    (function () {
+      if (location.protocol === 'file:') {
+        document.addEventListener('DOMContentLoaded', function () {
+          document.body.innerHTML = '<main style="max-width:42rem;margin:12vh auto;padding:2rem;font:1rem/1.6 system-ui"><h1>DWD Raster Explorer starten</h1><p>Diese HTML-Datei ist eine Vorlage für die lokale Anwendung. Öffne im Projektordner per Doppelklick <strong>Raster Explorer starten.command</strong>. Die fertige Karte öffnet sich dann automatisch im Browser.</p></main>';
+        });
+        return;
+      }
+      try {
+        var theme = localStorage.getItem('theme');
+        document.documentElement.setAttribute('data-theme', theme === 'lilli-light' ? 'lilli-light' : 'lilli-dark');
+      } catch (_) { document.documentElement.setAttribute('data-theme', 'lilli-dark'); }
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=asset_version) }}">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+      <div class="brand-copy"><span class="eyebrow">DWD · KLIMADATEN</span><h1>Raster Explorer</h1></div>
+    </div>
+    <div class="header-actions">
+      <span class="header-hint">Raster verstehen. Orte vergleichen.</span>
+      <div id="status" class="status" role="status" aria-live="polite">Beispielraster wird geladen …</div>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Farbschema wechseln" title="Farbschema wechseln"><span aria-hidden="true">◐</span></button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="sidebar" aria-label="Raster und Darstellung">
+      <div class="sidebar-intro">
+        <span class="eyebrow">ARBEITSBEREICH</span>
+        <h2>Klimaraster erkunden</h2>
+        <p>Januar 1901 und das Jahresraster werden automatisch geladen. Klicke auf einen Ort in der Karte, um die Werte zu sehen.</p>
+      </div>
+
+      <section class="side-card" aria-labelledby="loadTitle">
+        <div class="section-head"><span class="section-number">01</span><div><h2 id="loadTitle">Daten hinzufügen</h2><p>Parameter wählen und DWD-Raster laden</p></div></div>
+        <div class="dwd-picker" aria-labelledby="dwdPickerTitle">
+          <div class="dwd-picker-heading"><strong id="dwdPickerTitle">DWD-Datenkatalog</strong><span>Live von opendata.dwd.de</span></div>
+          <label>Zeitauflösung
+            <select id="catalogPeriod" disabled><option>Wird geladen …</option></select>
+          </label>
+          <label>Parameter
+            <select id="catalogProduct" disabled><option>Erst Zeitauflösung wählen</option></select>
+          </label>
+          <div id="catalogFolders" class="catalog-folders"></div>
+          <label>Datensatz / Jahr
+            <select id="catalogFile" disabled><option>Erst Parameter wählen</option></select>
+          </label>
+          <p id="catalogMessage" class="field-help" role="status" aria-live="polite">DWD-Katalog wird geladen …</p>
+          <button id="catalogLoad" class="button primary full-width" type="button" disabled>Ausgewähltes Raster laden</button>
+          <div id="seriesControls" class="series-controls" hidden>
+            <label>Jahr für Monatsverlauf
+              <select id="seriesYear" disabled></select>
+            </label>
+            <button id="seriesLoad" class="button subtle full-width" type="button" disabled>Alle Monate für Diagramm laden</button>
+            <p class="field-help">Lädt die verfügbaren Monate dieses Jahres für den gewählten Parameter.</p>
+          </div>
+        </div>
+        <details class="local-import">
+          <summary>Eigene Rasterdatei laden</summary>
+          <div class="details-body">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Rasterdateien auswählen oder hier ablegen">
+          <span class="upload-icon" aria-hidden="true">↑</span>
+          <strong>Dateien hier ablegen</strong>
+          <span>oder klicken, um Dateien auszuwählen</span>
+          <small>.asc und .asc.gz · Mehrfachauswahl möglich</small>
+          <input id="fileInput" type="file" accept=".asc,.gz,.asc.gz" multiple hidden>
+        </div>
+        <div class="form-grid">
+          <label>Koordinatensystem
+            <select id="epsg">
+              <option value="">Automatisch erkennen</option>
+              <option value="EPSG:31467">EPSG:31467 · DHDN / GK3</option>
+              <option value="EPSG:3035">EPSG:3035 · ETRS-LAEA</option>
+              <option value="EPSG:25832">EPSG:25832 · UTM 32N</option>
+              <option value="EPSG:4326">EPSG:4326 · WGS 84</option>
+            </select>
+          </label>
+          <label>Einheit
+            <input id="unit" placeholder="z. B. °C oder mm">
+          </label>
+        </div>
+        <p class="field-help">Für das mitgelieferte DWD-Temperaturraster werden Projektion und °C automatisch erkannt.</p>
+          </div>
+        </details>
+        <details class="dwd-browser">
+          <summary>DWD-Datei per URL laden</summary>
+          <div class="details-body">
+            <label>Dateiadresse
+              <input id="dwdFileUrl" type="url" placeholder="https://opendata.dwd.de/.../datei.asc.gz">
+            </label>
+            <button id="importUrlBtn" class="button primary" type="button">Datei laden</button>
+            <div class="dwd-divider">oder Verzeichnis durchsuchen</div>
+            <label>Verzeichnisadresse
+              <input id="dwdUrl" type="url" value="https://opendata.dwd.de/climate_environment/CDC/grids_germany/">
+            </label>
+            <button id="browseBtn" class="button subtle" type="button">Verzeichnis öffnen</button>
+            <input id="dwdFilter" type="search" placeholder="Jahr oder Datei suchen" aria-label="DWD-Dateien filtern" hidden>
+            <div id="dwdEntries" class="entries"></div>
+            <button id="importSelectedBtn" class="button primary" type="button" disabled>Auswahl importieren</button>
+          </div>
+        </details>
+      </section>
+
+      <section class="side-card" aria-labelledby="layersTitle">
+        <div class="section-head"><span class="section-number">02</span><div><h2 id="layersTitle">Rasterebenen</h2><p><span id="layerCount">0 Ebenen</span> auf der Karte</p></div></div>
+        <div id="emptyLayers" class="empty"><strong>Noch keine Raster geladen</strong><span>Geladene Ebenen erscheinen hier.</span></div>
+        <div id="layers" class="layers-list"></div>
+      </section>
+
+      <section class="side-card" aria-labelledby="styleTitle">
+        <div class="section-head"><span class="section-number">03</span><div><h2 id="styleTitle">Darstellung</h2><p>Farben und Wertebereich anpassen</p></div></div>
+        <div class="form-grid">
+          <label>Farbskala
+            <select id="palette">
+              <option value="climate">Klima</option>
+              <option value="precip">Niederschlag</option>
+              <option value="terrain">Gelände</option>
+              <option value="gray">Graustufen</option>
+            </select>
+          </label>
+          <label>Deckkraft <input id="opacity" type="range" min="0" max="1" step="0.05" value="0.72"></label>
+          <label>Minimum <input id="scaleMin" type="number" step="any" placeholder="Automatisch"></label>
+          <label>Maximum <input id="scaleMax" type="number" step="any" placeholder="Automatisch"></label>
+        </div>
+        <button id="applyStyle" class="button primary full-width" type="button">Darstellung anwenden</button>
+      </section>
+    </aside>
+
+    <section class="workspace" aria-label="Karte und Rasterwerte">
+      <div class="map-card">
+        <div class="map-heading"><div><span class="eyebrow">KARTENANSICHT</span><h2 id="activeTitle">Raster auf der Karte</h2><p id="activeDescription" class="active-description">Eine Ebene auswählen, um Details zu sehen.</p></div><div class="map-context"><span id="activePeriod" class="period-badge">–</span><a id="descriptionLink" href="#" target="_blank" rel="noopener noreferrer" hidden>DWD-Beschreibung ↗</a></div></div>
+        <div class="map-stage">
+          <div id="map" aria-label="Interaktive Karte mit DWD-Rastern"></div>
+          <form id="placeSearch" class="place-search" role="search">
+            <label class="visually-hidden" for="placeQuery">Ort suchen</label>
+            <div class="place-search-row"><input id="placeQuery" type="search" placeholder="Ort oder PLZ suchen" autocomplete="off"><button class="button primary search-submit" type="submit" aria-label="Ort suchen" title="Ort suchen"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg></button></div>
+            <div id="placeResults" class="place-results" hidden></div>
+          </form>
+          <div id="mapEmpty" class="map-empty"><span class="map-empty-icon" aria-hidden="true">▧</span><strong>Die Karte wartet auf Daten</strong><span>Lade links ein Raster, um es anzuzeigen.</span></div>
+          <div id="hoverValue" class="hover-value">Maus über das Raster bewegen</div>
+          <div class="legend" id="legend" aria-label="Legende der aktiven Ebene">
+            <div class="legend-head"><span class="eyebrow">AKTIVE EBENE</span><strong id="legendTitle">Keine Ebene</strong></div>
+            <div id="legendRamp" class="legend-ramp"></div>
+            <div class="legend-values"><span id="legendMin">–</span><span id="legendMax">–</span></div>
+          </div>
+        </div>
+      </div>
+      <section class="chart-panel" aria-labelledby="chartTitle">
+        <div class="chart-head"><div><span class="eyebrow">PUNKTABFRAGE</span><h2 id="chartTitle">Werte am gewählten Ort</h2><a class="climate-jump" href="#climateTitle">Mehrere Parameter im Klimadiagramm anzeigen ↓</a></div><div class="chart-actions"><label for="chartParameter">Einzelverlauf</label><select id="chartParameter" disabled><option>Punkt wählen</option></select><span id="pointLabel" class="point-label">Noch kein Ort gewählt</span></div></div>
+        <div class="chart-content"><div class="chart-wrap"><canvas id="chart" aria-label="Rasterwerte im Zeitverlauf"></canvas></div><div id="valueTable" class="value-table"></div></div>
+      </section>
+      <section class="climate-panel" aria-labelledby="climateTitle">
+        <div class="climate-heading"><div><span class="eyebrow">KLIMADIAGRAMM</span><h2 id="climateTitle">Monatswerte vergleichen</h2><p>Wähle Parameter und Monate für den markierten Ort.</p></div><div class="climate-heading-side"><label id="climateYearControl" hidden>Jahr<select id="climateYear" disabled><option>Monatsdaten laden</option></select></label><span id="climatePoint" class="point-label">Noch kein Ort gewählt</span></div></div>
+        <div class="climate-add">
+          <label>Weiteren DWD-Parameter laden<select id="climateProduct" disabled><option>Parameter werden geladen …</option></select></label>
+          <label>Jahr zum Laden<select id="climateSourceYear" disabled><option>Jahr wählen</option></select></label>
+          <button id="climateAdd" class="button primary" type="button" disabled>Monatsdaten laden</button>
+        </div>
+        <p id="climateStatus" class="climate-status" role="status" aria-live="polite">Wähle einen Ort auf der Karte und lade Monatsdaten für das Diagramm.</p>
+        <div class="climate-choices" aria-labelledby="climateChoicesTitle">
+          <div class="climate-choices-head"><div><h3 id="climateChoicesTitle">Parameter im Klimadiagramm <span id="climateSelectedCount">0 ausgewählt</span></h3><p>Mehrere Parameter gleichzeitig auswählen.</p></div><div class="climate-choice-actions"><button id="climateSelectAll" class="button subtle" type="button">Alle auswählen</button><button id="climateSelectNone" class="button subtle" type="button">Auswahl leeren</button></div></div>
+          <div id="climateParameterChoices" class="climate-parameter-choices" role="group" aria-label="Parameter für das Klimadiagramm auswählen"></div>
+        </div>
+        <div class="climate-table-wrap"><div class="climate-table-head"><strong>Monatswerte am gewählten Ort</strong><label><input id="climateAllMonths" type="checkbox" checked> Alle Monate anzeigen</label></div><table class="climate-table" id="climateTable" aria-label="Monatswerte für das Klimadiagramm"><thead></thead><tbody></tbody></table></div>
+        <div class="climate-plot"><canvas id="climateChart" aria-label="Klimadiagramm mit Monatswerten"></canvas><div id="climateEmpty" class="climate-empty">Monatswerte und einen Ort auswählen, um das Klimadiagramm zu sehen.</div></div>
+      </section>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/chart/chart.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js', v=asset_version) }}"></script>
+  <script src="{{ url_for('static', filename='climate-data.js', v=asset_version) }}"></script>
+  <script src="{{ url_for('static', filename='dwd-picker.js', v=asset_version) }}"></script>
+  <script src="{{ url_for('static', filename='climate-chart.js', v=asset_version) }}"></script>
+</body>
+</html>
