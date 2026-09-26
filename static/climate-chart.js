@@ -51,6 +51,12 @@ function climateOption(select, value, label) {
   select.append(option);
 }
 
+function climateSeriesColour(row, index) {
+  if (row.unit === '°C') return '#e98787';
+  if (row.unit === 'mm') return '#79add8';
+  return themeColor(CLIMATE_SERIES_COLOURS[index % CLIMATE_SERIES_COLOURS.length]);
+}
+
 function renderClimatePanel() {
   const pointKey = state.selectedPoint
     ? `${state.selectedPoint.lat.toFixed(5)},${state.selectedPoint.lng.toFixed(5)}` : '';
@@ -134,7 +140,7 @@ function renderClimateParameterChoices(rows) {
     checkbox.onchange = () => selectClimateParameter(row.key, checkbox.checked);
     const swatch = document.createElement('span');
     swatch.className = 'climate-chip-swatch';
-    swatch.style.backgroundColor = themeColor(CLIMATE_SERIES_COLOURS[index % CLIMATE_SERIES_COLOURS.length]);
+    swatch.style.backgroundColor = climateSeriesColour(row, index);
     const name = document.createElement('span');
     name.textContent = `${row.title}${row.unit ? ` · ${row.unit}` : ''}`;
     label.append(checkbox, swatch, name);
@@ -228,9 +234,8 @@ function updateClimateChart() {
     climateRowsVisible, climateSelectedParameters, climateMonthsSelected);
   const annual = climateAnnualSummaries(climateRowsVisible, climateSelectedParameters);
   const axisFor = new Map(units.map((unit, index) => [unit, `y${index}`]));
-  const colourFor = new Map(climateRowsVisible.map((row, index) => [row.key,
-    row.unit === '°C' ? themeColor('--color-error') : row.unit === 'mm'
-      ? themeColor('--color-info') : themeColor(CLIMATE_SERIES_COLOURS[index % CLIMATE_SERIES_COLOURS.length])]));
+  const colourFor = new Map(climateRowsVisible.map((row, index) =>
+    [row.key, climateSeriesColour(row, index)]));
   climateChart.data.labels = months.map(month => CLIMATE_MONTHS[month - 1]);
   climateChart.data.datasets = rows.map(row => {
     const color = colourFor.get(row.key);
@@ -241,7 +246,9 @@ function updateClimateChart() {
       data: months.map(month => row.values[month - 1]),
       borderColor: color, backgroundColor: color,
       pointBackgroundColor: color, pointRadius: 3, pointHoverRadius: 5,
-      borderWidth: 2, tension: 0.25, spanGaps: false, barPercentage: 0.7
+      borderWidth: row.unit === '°C' ? 3 : 1.5,
+      order: row.unit === '°C' ? 0 : row.unit === 'mm' ? 10 : 5,
+      tension: 0.25, spanGaps: false, barPercentage: 0.7
     };
   });
   const textColor = themeColor('--color-base-content');
@@ -347,7 +354,7 @@ async function changeClimateDataSource() {
   select.replaceChildren();
   if ($('climateDataSource').value === 'global') {
     $('climateMapMonthControl').hidden = false;
-    $('climateAdd').textContent = 'Diagramm und Farbfläche laden';
+    $('climateAdd').textContent = 'Parameter dem Diagramm hinzufügen';
     $('climateProductLabel').textContent = 'Globalen Parameter laden';
     GLOBAL_CLIMATE_PRODUCTS.forEach(([value, label]) => climateOption(select, value, label));
     select.disabled = false;
@@ -357,7 +364,7 @@ async function changeClimateDataSource() {
       : 'Wähle weltweit einen Ort auf der Karte oder über die Ortssuche.');
   } else {
     $('climateMapMonthControl').hidden = true;
-    $('climateAdd').textContent = 'Monatsdaten laden';
+    $('climateAdd').textContent = 'Parameter dem Diagramm hinzufügen';
     $('climateProductLabel').textContent = 'DWD-Parameter laden';
     if (!dwdProductsLoaded) {
       await initClimateProducts();
@@ -406,6 +413,8 @@ async function addGlobalClimateProduct(year) {
   globalClimateValues = globalClimateValues.filter(value =>
     !(value.productKey === `global:${parameter}` && value.timestamp.startsWith(`${year}-`)));
   globalClimateValues.push(...data.values);
+  state.globalPointValues = [...globalClimateValues];
+  renderPointValues();
   climateSelectedParameters.add(`${data.values[0].productKey}::${data.values[0].unit}`);
   climateRequestedYear = year;
   renderClimatePanel();

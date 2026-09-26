@@ -1,4 +1,4 @@
-const state={rasters:new Map(),overlays:new Map(),selectedUrls:new Set(),activeId:null,chartGroup:null,marker:null,selectedPoint:null,pointValues:[]};
+const state={rasters:new Map(),overlays:new Map(),selectedUrls:new Set(),activeId:null,chartGroup:null,marker:null,selectedPoint:null,pointValues:[],globalPointValues:[]};
 const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true}).setView([51.1,10.4],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap-Mitwirkende'}).addTo(map);
@@ -51,7 +51,7 @@ $('applyStyle').onclick=()=>{for(const [id,old] of state.overlays){const r=state
 
 let hoverTimer;map.on('mousemove',e=>{clearTimeout(hoverTimer);hoverTimer=setTimeout(async()=>{if(!state.activeId)return;try{const d=await api('/api/values',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:e.latlng.lat,lon:e.latlng.lng,ids:[state.activeId]})});const v=d.values[0],value=v&&v.value!==null?`${format(v.value)} ${v.unit||'(Originalwert)'}`:'kein Wert';$('hoverValue').textContent=`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)} · ${value}` }catch{}},100)});
 function renderPointValues(){
-  const sorted=state.pointValues;
+  const sorted=[...state.pointValues,...state.globalPointValues].sort((a,b)=>(a.timestamp||a.name).localeCompare(b.timestamp||b.name));
   const frequencyNames={monthly:'Monat',annual:'Jahr',seasonal:'Jahreszeit',multi_annual:'Vieljährig'};
   const groups=new Map();
   for(const value of sorted){
@@ -81,6 +81,7 @@ $('copyChart').onclick=async()=>{try{await copyChartImage($('chart'),$('copyChar
 let pointRequest = 0;
 function selectPoint(latlng,name=''){
   state.selectedPoint={lat:latlng.lat,lng:latlng.lng};
+  state.globalPointValues=[];
   if(state.marker)state.marker.setLatLng(latlng);
   else state.marker=L.circleMarker(latlng,{radius:6,color:themeColor('--color-base-content'),fillColor:themeColor('--color-accent'),fillOpacity:1}).addTo(map);
   $('pointLabel').textContent=name||`${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
