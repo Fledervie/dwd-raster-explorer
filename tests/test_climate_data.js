@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {climateYears, climateRows, climateSelection, monthlyProductFiles,
+const {climateYears, climateRows, climateSelection, climateAnnualSummaries, monthlyProductFiles,
   readableMonthlyProducts} = require('../static/climate-data.js');
 
 test('offers only products with monthly ASC grids, including flat directories', async () => {
@@ -30,10 +30,10 @@ test('groups monthly temperature and precipitation by year and leaves missing mo
   ];
   assert.deepEqual(climateYears(values), ['1902', '1901']);
   const rows = climateRows(values, '1901');
-  assert.deepEqual(rows.map(row => row.unit), ['°C', 'mm']);
-  assert.deepEqual(rows[0].values.slice(0, 3), [-0.6, 0, null]);
-  assert.deepEqual(rows[0].loaded.slice(0, 3), [true, true, false]);
-  assert.equal(rows[1].values[0], 48);
+  assert.deepEqual(rows.map(row => row.unit), ['mm', '°C']);
+  assert.equal(rows[0].values[0], 48);
+  assert.deepEqual(rows[1].values.slice(0, 3), [-0.6, 0, null]);
+  assert.deepEqual(rows[1].loaded.slice(0, 3), [true, true, false]);
   assert.equal(rows.length, 2);
 });
 
@@ -53,11 +53,22 @@ test('selects temperature and precipitation together for chosen months and separ
   const rows = climateRows(values, '1901');
   const both = climateSelection(rows, new Set(rows.map(row => row.key)), new Set([2, 1]));
   assert.equal(both.rows.length, 2);
-  assert.deepEqual(both.units, ['°C', 'mm']);
+  assert.deepEqual(both.units, ['mm', '°C']);
   assert.deepEqual(both.months, [1, 2]);
   assert.deepEqual(both.rows.map(row => both.months.map(month => row.values[month - 1])),
-    [[-0.6, 0], [31, 22]]);
-  const onlyRain = climateSelection(rows, new Set([rows[1].key]), new Set([2]));
+    [[31, 22], [-0.6, 0]]);
+  const onlyRain = climateSelection(rows, new Set([rows[0].key]), new Set([2]));
   assert.deepEqual(onlyRain.rows.map(row => row.title), ['Niederschlag']);
   assert.deepEqual(onlyRain.months, [2]);
+});
+
+test('calculates annual means for temperature and annual sums for precipitation', () => {
+  const rows = [
+    {key:'rain',title:'Niederschlag',unit:'mm',values:Array(12).fill(10)},
+    {key:'temp',title:'Temperatur',unit:'°C',values:Array.from({length:12}, (_, index) => index)}
+  ];
+  const summaries = climateAnnualSummaries(rows, new Set(['rain', 'temp']));
+  assert.deepEqual(summaries.map(item => [item.kind, item.value]), [
+    ['Jahressumme', 120], ['Jahresmittel', 5.5]
+  ]);
 });

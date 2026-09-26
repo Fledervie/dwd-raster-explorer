@@ -9,6 +9,17 @@ map.attributionControl.addAttribution('Ortssuche: <a href="https://open-meteo.co
 map.attributionControl.addAttribution('Globale Klimadaten: <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" rel="noopener noreferrer">Open-Meteo / ERA5</a>');
 const chart=new Chart($('chart'),{type:'line',data:{labels:[],datasets:[{label:'Rasterwert',data:[],borderColor:'',backgroundColor:'',pointBackgroundColor:'',pointBorderColor:'',pointRadius:5,pointHoverRadius:7,borderWidth:2,tension:.25,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:10}},y:{beginAtZero:false}}}});
 function themeColor(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim()}
+function canvasPngBlob(canvas){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Bild konnte nicht erzeugt werden.')),'image/png'))}
+async function copyChartImage(canvas,button,heading='',details=''){
+  if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw new Error('Der Browser unterstützt das Kopieren von Bildern nicht.');
+  const scale=canvas.width/Math.max(canvas.clientWidth,1),header=heading?Math.round(68*scale):0;
+  const output=document.createElement('canvas');output.width=canvas.width;output.height=canvas.height+header;
+  const context=output.getContext('2d');context.fillStyle=themeColor('--color-base-100')||'#fff';context.fillRect(0,0,output.width,output.height);
+  if(heading){context.fillStyle=themeColor('--color-base-content')||'#111';context.font=`700 ${Math.round(17*scale)}px Inter, sans-serif`;context.fillText(heading,Math.round(18*scale),Math.round(27*scale));context.fillStyle=themeColor('--muted')||'#555';context.font=`400 ${Math.round(11*scale)}px Inter, sans-serif`;context.fillText(details,Math.round(18*scale),Math.round(49*scale),output.width-Math.round(36*scale))}
+  context.drawImage(canvas,0,header);
+  await navigator.clipboard.write([new ClipboardItem({'image/png':await canvasPngBlob(output)})]);
+  const previous=button.textContent;button.textContent='Kopiert';button.classList.add('copied');setTimeout(()=>{button.textContent=previous;button.classList.remove('copied')},1800);
+}
 function applyTheme(){const dark=document.documentElement.getAttribute('data-theme')==='lilli-dark';$('themeToggle').setAttribute('aria-label',dark?'Helles Farbschema aktivieren':'Dunkles Farbschema aktivieren');$('themeToggle').setAttribute('aria-pressed',String(!dark));chart.data.datasets[0].borderColor=themeColor('--color-primary');chart.data.datasets[0].backgroundColor=themeColor('--color-primary');chart.data.datasets[0].pointBackgroundColor=themeColor('--color-accent');chart.data.datasets[0].pointBorderColor=themeColor('--color-base-100');for(const axis of Object.values(chart.options.scales)){axis.ticks.color=themeColor('--color-base-content');axis.grid={color:themeColor('--color-base-300')}}if(state.marker)state.marker.setStyle({color:themeColor('--color-base-content'),fillColor:themeColor('--color-accent')});chart.update();document.dispatchEvent(new Event('app-theme-change'))}
 $('themeToggle').onclick=()=>{const next=document.documentElement.getAttribute('data-theme')==='lilli-dark'?'lilli-light':'lilli-dark';document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('theme',next)}catch(_){}applyTheme()};applyTheme();
 
@@ -66,6 +77,7 @@ function renderPointValues(){
   document.dispatchEvent(new Event('point-values-change'));
 }
 $('chartParameter').onchange=event=>{state.chartGroup=event.target.value;renderPointValues()};
+$('copyChart').onclick=async()=>{try{await copyChartImage($('chart'),$('copyChart'),$('chartTitle').textContent,$('pointLabel').textContent)}catch(error){status(error.message,true)}};
 let pointRequest = 0;
 function selectPoint(latlng,name=''){
   state.selectedPoint={lat:latlng.lat,lng:latlng.lng};

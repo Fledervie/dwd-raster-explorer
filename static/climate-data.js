@@ -60,7 +60,7 @@ function climateRows(values, year) {
     if (!row.loaded[month] || item.value !== null) row.values[month] = item.value;
     row.loaded[month] = true;
   }
-  const unitRank = unit => unit === '°C' ? 0 : unit === 'mm' ? 1 : 2;
+  const unitRank = unit => unit === 'mm' ? 0 : unit === '°C' ? 1 : 2;
   return [...rows.values()].sort((a, b) =>
     unitRank(a.unit) - unitRank(b.unit) || a.title.localeCompare(b.title, 'de'));
 }
@@ -68,13 +68,28 @@ function climateRows(values, year) {
 function climateSelection(rows, selectedKeys, selectedMonths) {
   const chosen = rows.filter(row => selectedKeys.has(row.key));
   const months = [...selectedMonths].sort((a, b) => a - b);
-  const unitRank = unit => unit === '°C' ? 0 : unit === 'mm' ? 1 : 2;
+  const unitRank = unit => unit === 'mm' ? 0 : unit === '°C' ? 1 : 2;
   const units = [...new Set(chosen.map(row => row.unit || 'Originalwert'))]
     .sort((a, b) => unitRank(a) - unitRank(b) || a.localeCompare(b, 'de'));
   return {rows: chosen, months, units};
 }
 
+function climateAnnualSummaries(rows, selectedKeys) {
+  return rows.filter(row => selectedKeys.has(row.key)).map(row => {
+    const values = row.values.filter(value => value !== null && Number.isFinite(value));
+    const mean = row.unit === '°C' || row.unit === 'km/h';
+    const value = values.length
+      ? (mean ? values.reduce((sum, item) => sum + item, 0) / values.length
+        : values.reduce((sum, item) => sum + item, 0))
+      : null;
+    const kind = values.length === 12
+      ? (mean ? 'Jahresmittel' : 'Jahressumme')
+      : `${mean ? 'Mittel' : 'Summe'} (${values.length} Monate)`;
+    return {...row, value, kind};
+  });
+}
+
 if (typeof module !== 'undefined') module.exports = {
   CLIMATE_MONTHS, climateYears, climateRows, climateSelection,
-  monthlyFileParts, monthlyProductFiles, readableMonthlyProducts
+  climateAnnualSummaries, monthlyFileParts, monthlyProductFiles, readableMonthlyProducts
 };

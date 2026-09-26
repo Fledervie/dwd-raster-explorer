@@ -32,7 +32,7 @@ const climateChart = new Chart($('climateChart'), {
       legend: {display: true, position: 'top', labels: {color: themeColor('--color-base-content')}},
       tooltip: {callbacks: {label(context) {
         const value = context.parsed.y;
-        return `${context.dataset.label}: ${value === null ? '–' : format(value)}${context.dataset.unit ? ` ${context.dataset.unit}` : ''}`;
+        return `${context.dataset.title || context.dataset.label}: ${value === null ? '–' : format(value)}${context.dataset.unit ? ` ${context.dataset.unit}` : ''}`;
       }}}
     },
     scales: {x: {grid: {display: false}}, y0: {beginAtZero: false}}
@@ -226,15 +226,18 @@ function renderClimateTable(rows) {
 function updateClimateChart() {
   const {months, rows, units} = climateSelection(
     climateRowsVisible, climateSelectedParameters, climateMonthsSelected);
+  const annual = climateAnnualSummaries(climateRowsVisible, climateSelectedParameters);
   const axisFor = new Map(units.map((unit, index) => [unit, `y${index}`]));
-  const colourFor = new Map(climateRowsVisible.map((row, index) =>
-    [row.key, themeColor(CLIMATE_SERIES_COLOURS[index % CLIMATE_SERIES_COLOURS.length])]));
+  const colourFor = new Map(climateRowsVisible.map((row, index) => [row.key,
+    row.unit === '°C' ? themeColor('--color-error') : row.unit === 'mm'
+      ? themeColor('--color-info') : themeColor(CLIMATE_SERIES_COLOURS[index % CLIMATE_SERIES_COLOURS.length])]));
   climateChart.data.labels = months.map(month => CLIMATE_MONTHS[month - 1]);
   climateChart.data.datasets = rows.map(row => {
     const color = colourFor.get(row.key);
     return {
       type: climateDisplayTypes.get(row.key) || (row.unit === 'mm' ? 'bar' : 'line'),
-      label: row.title, unit: row.unit, yAxisID: axisFor.get(row.unit || 'Originalwert'),
+      label: `${row.title}${row.unit ? ` [${row.unit}]` : ''}`, title: row.title,
+      unit: row.unit, yAxisID: axisFor.get(row.unit || 'Originalwert'),
       data: months.map(month => row.values[month - 1]),
       borderColor: color, backgroundColor: color,
       pointBackgroundColor: color, pointRadius: 3, pointHoverRadius: 5,
@@ -254,9 +257,20 @@ function updateClimateChart() {
   });
   climateChart.options.scales = scales;
   climateChart.options.plugins.legend.labels.color = textColor;
+  climateChart.options.plugins.title = {
+    display: rows.length > 0,
+    text: `${$('climatePoint').textContent} · ${$('climateYear').value}`,
+    color: textColor, font: {size: 16, weight: 'bold'}, padding: {bottom: 5}
+  };
+  climateChart.options.plugins.subtitle = {
+    display: annual.length > 0,
+    text: annual.map(item => `${item.kind} ${item.title}: ${item.value === null ? '–' : Number(item.value).toLocaleString('de-DE', {maximumFractionDigits: 1})} ${item.unit}`),
+    color: textColor, font: {size: 11}, padding: {bottom: 12}
+  };
   climateChart.update();
 
   const hasValues = rows.some(row => months.some(month => row.values[month - 1] !== null));
+  $('copyClimateChart').disabled = !hasValues;
   $('climateEmpty').hidden = hasValues;
   if (!state.selectedPoint) climateStatus('Wähle einen Ort auf der Karte oder über die Ortssuche.');
   else if (!climateRowsVisible.length) climateStatus('Lade Monatsraster, um Parameter in die Tabelle aufzunehmen.');
@@ -435,6 +449,10 @@ $('climateYear').onchange = () => {
 $('climateProduct').onchange = loadClimateProductYears;
 $('climateDataSource').onchange = changeClimateDataSource;
 $('climateAdd').onclick = addClimateProduct;
+$('copyClimateChart').onclick = async () => {
+  try { await copyChartImage($('climateChart'), $('copyClimateChart')); }
+  catch (error) { climateStatus(error.message, true); }
+};
 $('climateAllMonths').onchange = event => {
   climateMonthsSelected.clear();
   if (event.target.checked) for (let month = 1; month <= 12; month++) climateMonthsSelected.add(month);

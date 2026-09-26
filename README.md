@@ -39,6 +39,8 @@ liegen nur im Arbeitsspeicher und müssen nach einem Neustart erneut geladen wer
 - Monatsverlauf per Jahr laden: alle verfügbaren Monate eines DWD-Parameters werden gemeinsam importiert und im Diagramm dargestellt
 - Diagrammparameter unabhängig von der sichtbaren Kartenebene auswählen
 - Klimadiagramm unter der Punktabfrage mit frei wählbaren Parametern und Monaten; Temperatur als Linie und Niederschlag als Balken mit getrennten Achsen
+- Diagramme als PNG direkt in die Zwischenablage kopieren und in Dokumente oder Präsentationen einfügen
+- klassisches Klimadiagramm mit roter Temperaturkurve, blauen Niederschlagsbalken, Einheiten und Jahresmittel beziehungsweise Jahressumme
 - weltweite Klimadiagramme ab 1950 für jeden gewählten Ort mit ERA5-Daten von Open-Meteo (etwa 25 km Auflösung)
 - Reprojektion projizierter Raster in die Web-Mercator-Kartenprojektion
 - geführter DWD-Katalog: Zeitauflösung, Parameter, gegebenenfalls Monat und Jahr wählen; die Verzeichnisse werden live abgefragt
@@ -54,6 +56,11 @@ Für den normalen DWD-Import links im **DWD-Datenkatalog** die Zeitauflösung un
 Für einen Temperaturverlauf **Monat** und beispielsweise **Durchschnittliche Tageshöchsttemperatur** wählen. Unter **Jahr für Monatsverlauf** den Jahrgang einstellen und **Alle Monate für Diagramm laden** anklicken. Danach auf der Karte einen Ort suchen oder anklicken. Im Diagramm erscheinen die Monatswerte für diesen Punkt; mit **Diagrammparameter** kannst du zwischen geladenen Parametern wechseln. Auf der Karte bleibt jeweils nur der zuletzt geladene Monat dieser Reihe sichtbar.
 
 Unter der Punktabfrage findest du das **Klimadiagramm**. Dort kannst du weitere DWD-Monatsparameter und ein Jahr direkt laden. Die Tabelle zeigt für jeden geladenen Parameter die Werte von Januar bis Dezember am gewählten Ort. Im Bereich **Parameter im Klimadiagramm** kannst du mehrere Parameter gleichzeitig anhaken; **Alle auswählen** aktiviert sämtliche geladenen Reihen. Die Häkchen links in der Tabelle sind mit dieser Auswahl verbunden. Über die Häkchen in den Monatsköpfen wählst du einzelne Monate; **Alle Monate anzeigen** im Tabellenkopf schaltet das ganze Jahr ein oder aus. Eine zusätzliche Jahresauswahl erscheint nur, wenn Monatsdaten aus mehreren Jahren geladen sind. In der Spalte **Darstellung** entscheidest du zwischen Linie und Balken. Temperatur (°C) und Niederschlag (mm) erhalten getrennte Achsen. Nicht geladene Monate bleiben als Lücke sichtbar.
+
+Die Schaltfläche **Bild kopieren** legt das jeweilige Diagramm als PNG in die
+Zwischenablage. Im Klimadiagramm stehen Ort, Jahr, Einheiten und die Jahreswerte
+direkt im Bild. Bei zwölf vorhandenen Monaten werden Temperaturwerte als
+Jahresmittel und Mengen wie Niederschlag als Jahressumme ausgewiesen.
 
 Für Orte außerhalb Deutschlands im Klimadiagramm die Datenquelle **Weltweit · ERA5**
 wählen. Danach lassen sich mittlere, höchste und tiefste Temperatur, Niederschlag,
